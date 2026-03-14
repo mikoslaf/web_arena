@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arena – 2D Browser Game</title>
+  <meta name="description" content="Przeglądarkowa gra akcji 2D. Walcz z potworami i przetrwaj jak najdłużej na arenie!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Loading screen -->
+    <div id="loadScreen">
+      <div class="load-inner">
+        <h1 class="game-title">ARENA</h1>
+        <p class="game-subtitle">Przeżyj. Walcz. Zdobywaj punkty.</p>
+        <div class="controls-grid">
+          <div class="ctrl"><span class="key">W A S D</span><span>Ruch</span></div>
+          <div class="ctrl"><span class="key">SPACJA</span><span>Strzał</span></div>
+        </div>
+        <button id="startBtn">ROZPOCZNIJ GRĘ</button>
+      </div>
+    </div>
+    <!-- Game canvas -->
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <script type="module" src="main.js"></script>
+  <script>
+    // Show loading screen until start button is pressed
+    // The Game is instantiated in main.js but the loop only starts on button click
+    document.getElementById('startBtn').addEventListener('click', () => {
+      document.getElementById('loadScreen').style.display = 'none';
+      // Dispatch event for main.js to pick up
+      window.dispatchEvent(new Event('gameStart'));
+    });
+  </script>
+</body>
+</html>
