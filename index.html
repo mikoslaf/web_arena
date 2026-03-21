@@ -6,35 +6,78 @@
   <title>Arena – 2D Browser Game</title>
   <meta name="description" content="Przeglądarkowa gra akcji 2D. Walcz z potworami i przetrwaj jak najdłużej na arenie!" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
-    <!-- Loading screen -->
-    <div id="loadScreen">
-      <div class="load-inner">
+
+    <!-- ── Lobby Screen ──────────────────────────────────────────────────── -->
+    <div id="lobbyScreen">
+      <div class="lobby-inner">
+
+        <!-- Header -->
         <h1 class="game-title">ARENA</h1>
         <p class="game-subtitle">Przeżyj. Walcz. Zdobywaj punkty.</p>
+
+        <!-- Status -->
+        <p id="lobbyStatus" class="lobby-status lobby-status--muted">Łączenie z serwerem…</p>
+
+        <!-- Player setup -->
+        <div class="lobby-form">
+          <div class="form-group">
+            <label class="form-label" for="playerNameInput">Twój pseudonim</label>
+            <input
+              id="playerNameInput"
+              class="form-input"
+              type="text"
+              placeholder="Gracz"
+              maxlength="24"
+              autocomplete="off"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="roomNameInput">Nazwa pokoju (opcjonalnie)</label>
+            <input
+              id="roomNameInput"
+              class="form-input"
+              type="text"
+              placeholder="Mój pokój"
+              maxlength="32"
+              autocomplete="off"
+            />
+          </div>
+          <button id="createRoomBtn" class="btn btn--primary">+ UTWÓRZ POKÓJ</button>
+        </div>
+
+        <!-- Divider -->
+        <div class="lobby-divider">
+          <span>lub dołącz do istniejącego</span>
+        </div>
+
+        <!-- Room list -->
+        <div class="room-list-wrapper">
+          <div class="room-list-header">
+            <span class="room-list-title">Dostępne pokoje</span>
+            <span class="room-list-hint">Odświeżane automatycznie</span>
+          </div>
+          <div id="roomList" class="room-list">
+            <p class="lobby-empty">Ładowanie…</p>
+          </div>
+        </div>
+
+        <!-- Controls hint -->
         <div class="controls-grid">
           <div class="ctrl"><span class="key">W A S D</span><span>Ruch</span></div>
           <div class="ctrl"><span class="key">SPACJA</span><span>Strzał</span></div>
         </div>
-        <button id="startBtn">ROZPOCZNIJ GRĘ</button>
       </div>
     </div>
-    <!-- Game canvas -->
-    <canvas id="gameCanvas"></canvas>
+
+    <!-- ── Game Canvas ───────────────────────────────────────────────────── -->
+    <canvas id="gameCanvas" style="display:none;"></canvas>
+
   </div>
   <script type="module" src="main.js"></script>
-  <script>
-    // Show loading screen until start button is pressed
-    // The Game is instantiated in main.js but the loop only starts on button click
-    document.getElementById('startBtn').addEventListener('click', () => {
-      document.getElementById('loadScreen').style.display = 'none';
-      // Dispatch event for main.js to pick up
-      window.dispatchEvent(new Event('gameStart'));
-    });
-  </script>
 </body>
 </html>

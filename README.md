@@ -45,7 +45,14 @@ cd arena
 docker compose up --build
 ```
 
-Otwórz: [http://localhost:8080](http://localhost:8080)
+Otwórz w sieci: [http://IP_VM](http://IP_VM)
+
+Przykład: `http://10.40.31.245`
+
+Mapowanie portów (host -> kontener):
+
+- `80 -> 80` (frontend + websocket `/ws`)
+- `3001` nie jest publikowany na hosta (działa tylko wewnątrz sieci Dockera)
 
 Zatrzymaj:
 

@@ -1,6 +1,26 @@
 services:
   arena:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "8080:80"
+      - "0.0.0.0:80:80"
     restart: unless-stopped
+    depends_on:
+      - arena-server
+    networks:
+      - arena-net
+
+  arena-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+    networks:
+      - arena-net
+
+networks:
+  arena-net:
+    driver: bridge
