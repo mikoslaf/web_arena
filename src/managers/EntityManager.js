@@ -25,7 +25,7 @@ export class EntityManager {
     // Collect new bullets from players
     for (const p of this.players) {
       if (p.isAlive) {
-        const newBullets = p.drainBullets();
+        const newBullets = typeof p.drainBullets === 'function' ? p.drainBullets() : [];
         this.bullets.push(...newBullets);
       }
     }

@@ -46,6 +46,11 @@ export class RemotePlayer extends Entity {
     this.isAlive = state.isAlive;
   }
 
+  drainBullets() {
+    // Remote players do not spawn bullets locally in this class.
+    return [];
+  }
+
   draw(ctx) {
     if (!this.isAlive) return;
     ctx.save();
