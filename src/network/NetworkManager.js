@@ -134,6 +134,14 @@ export class NetworkManager {
     this._send({ type: 'bulletFired', bullet });
   }
 
+  /**
+   * @param {string} enemyId
+   * @param {number} damage
+   */
+  sendEnemyHit(enemyId, damage) {
+    this._send({ type: 'enemyHit', enemyId, damage });
+  }
+
   // ── Private ────────────────────────────────────────────────────────────────
 
   _send(data) {

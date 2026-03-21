@@ -9,6 +9,7 @@
  *     { type: 'listRooms' }
  *     { type: 'playerUpdate', state: { x, y, angle, hp, score, isAlive } }
  *     { type: 'bulletFired',  bullet: { x, y, vx, vy, damage } }
+ *     { type: 'enemyHit',     enemyId: string, damage: number }
  *
  *   Server → Client:
  *     { type: 'roomCreated',  room: { id, name, players } }
@@ -18,25 +19,26 @@
  *     { type: 'playerLeft',   playerId }
  *     { type: 'playerUpdate', playerId, state }
  *     { type: 'bulletFired',  playerId, bullet }
+ *     { type: 'roomState',    wave, enemies }
+ *     { type: 'enemyDied',    enemyId, killerId }
  *     { type: 'error',        message }
  */
 
 const { WebSocketServer, WebSocket } = require('ws');
 const { randomUUID } = require('crypto');
+const ServerGameRoom = require('./ServerGameRoom.js');
 
 const PORT = process.env.PORT || 3001;
 const wss = new WebSocketServer({ port: PORT, host: '0.0.0.0' });
 
-/** @type {Map<string, Room>} */
+/** @type {Map<string, ServerGameRoom>} */
 const rooms = new Map();
 
 /** @type {Map<WebSocket, ClientInfo>} */
 const clients = new Map();
 
 /**
- * @typedef {{ id: string, name: string, players: Map<string, PlayerInfo> }} Room
  * @typedef {{ playerId: string, playerName: string, roomId: string|null, ws: WebSocket }} ClientInfo
- * @typedef {{ id: string, name: string }} PlayerInfo
  */
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,7 +73,7 @@ function getRoomList() {
 }
 
 function getPlayersInfo(room) {
-  return [...room.players.values()];
+  return Array.from(room.players.values()).map(p => ({ id: p.id, name: p.name }));
 }
 
 function leaveRoom(ws) {
@@ -80,11 +82,12 @@ function leaveRoom(ws) {
 
   const room = rooms.get(client.roomId);
   if (room) {
-    room.players.delete(client.playerId);
+    room.removePlayer(client.playerId);
     broadcast(room, { type: 'playerLeft', playerId: client.playerId });
 
     // Clean up empty rooms
     if (room.players.size === 0) {
+      room.destroy();
       rooms.delete(room.id);
     }
   }
@@ -104,19 +107,16 @@ const handlers = {
     const client = clients.get(ws);
     if (!client) return;
 
-    // Leave existing room first
     leaveRoom(ws);
 
     const roomId = randomUUID();
-    const room = {
-      id: roomId,
-      name: (msg.roomName || 'Pokój').slice(0, 32),
-      players: new Map(),
-    };
+    const room = new ServerGameRoom(
+      roomId,
+      (msg.roomName || 'Pokój').slice(0, 32),
+      (r, data, excludeWs) => broadcast(r, data, excludeWs)
+    );
 
-    /** @type {PlayerInfo} */
-    const playerInfo = { id: client.playerId, name: client.playerName };
-    room.players.set(client.playerId, playerInfo);
+    room.addPlayer(client.playerId, { name: client.playerName, ws });
     rooms.set(roomId, room);
     client.roomId = roomId;
 
@@ -144,15 +144,11 @@ const handlers = {
       return;
     }
 
-    // Leave existing room first
     leaveRoom(ws);
 
-    /** @type {PlayerInfo} */
-    const playerInfo = { id: client.playerId, name: client.playerName };
-    room.players.set(client.playerId, playerInfo);
+    room.addPlayer(client.playerId, { name: client.playerName, ws });
     client.roomId = room.id;
 
-    // Notify the joining player
     send(ws, {
       type: 'roomJoined',
       room: {
@@ -163,7 +159,6 @@ const handlers = {
       playerId: client.playerId,
     });
 
-    // Notify other players in the room
     broadcast(room, {
       type: 'playerJoined',
       playerId: client.playerId,
@@ -181,6 +176,10 @@ const handlers = {
     const room = rooms.get(client.roomId);
     if (!room) return;
 
+    // Update server state for monsters targeting
+    room.updatePlayerState(client.playerId, msg.state);
+
+    // Forward to others
     broadcast(room, {
       type: 'playerUpdate',
       playerId: client.playerId,
@@ -201,6 +200,17 @@ const handlers = {
       bullet: msg.bullet,
     }, ws);
   },
+
+  enemyHit(ws, msg) {
+    const client = clients.get(ws);
+    if (!client || !client.roomId) return;
+
+    const room = rooms.get(client.roomId);
+    if (!room) return;
+
+    // Apply damage on the server
+    room.hitEnemy(client.playerId, msg.enemyId, msg.damage);
+  }
 };
 
 // ── Connection ────────────────────────────────────────────────────────────────

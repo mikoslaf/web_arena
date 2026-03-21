@@ -18,6 +18,7 @@ window.addEventListener('roomJoined', (e) => {
   game.network = e.detail.network;
   game.roomId = e.detail.roomId;
   game.localPlayerName = e.detail.playerName;
+  game.remotePlayersList = e.detail.players;
 
   // Render initialization
   window.dispatchEvent(new Event('resize'));

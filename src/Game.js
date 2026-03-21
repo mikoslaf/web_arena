@@ -1,5 +1,9 @@
 import { Arena } from './Arena.js';
 import { Player } from './entities/Player.js';
+import { RemotePlayer } from './entities/RemotePlayer.js';
+import { Bullet } from './entities/Bullet.js';
+import { Zombie } from './entities/Zombie.js';
+import { FastZombie } from './entities/FastZombie.js';
 import { EntityManager } from './managers/EntityManager.js';
 import { SpawnManager } from './managers/SpawnManager.js';
 import { InputManager } from './managers/InputManager.js';
@@ -27,6 +31,12 @@ export class Game {
     this.em      = new EntityManager();
     this.em.setArenaBounds(this.arena.x, this.arena.y, this.arena.w, this.arena.h);
 
+    this.em.onEnemyHit = (enemyId, damage, killerInfo) => {
+      if (this.network) {
+        this.network.sendEnemyHit(enemyId, damage);
+      }
+    };
+
     // Local player
     this.player = new Player({
       position: new Vector2(this.arena.centerX, this.arena.centerY),
@@ -47,7 +57,142 @@ export class Game {
   }
 
   start() {
+    this.remotePlayersMap = new Map();
+    
+    // Ustawienie nazwy gracza
+    if (this.localPlayerName) {
+      this.player.name = this.localPlayerName;
+    }
+
+    if (this.network) {
+      // Inicjalizacja graczy już będących w lobby
+      if (this.remotePlayersList) {
+        this.remotePlayersList.forEach(p => {
+          if (p.id !== this.network.playerId) {
+            this._addRemotePlayer(p.id, p.name);
+          }
+        });
+      }
+
+      this.network.on('playerJoined', (msg) => {
+        if (msg.playerId !== this.network.playerId) {
+          this._addRemotePlayer(msg.playerId, msg.playerName);
+        }
+      });
+
+      this.network.on('playerLeft', (msg) => {
+        this._removeRemotePlayer(msg.playerId);
+      });
+
+      this.network.on('playerUpdate', (msg) => {
+        const rp = this.remotePlayersMap.get(msg.playerId);
+        if (rp) {
+          rp.updateState(msg.state);
+        }
+      });
+
+      this.network.on('bulletFired', (msg) => {
+        if (msg.playerId === this.network.playerId) return;
+        const rp = this.remotePlayersMap.get(msg.playerId);
+        if (rp) {
+          const b = msg.bullet;
+          const bullet = new Bullet({
+            position: new Vector2(b.x, b.y),
+            direction: new Vector2(b.vx, b.vy).normalize(),
+            owner: rp,
+            damage: b.damage,
+            color: '#ef5350'
+          });
+          bullet.velocity = new Vector2(b.vx, b.vy);
+          this.em.addBullet(bullet);
+        }
+      });
+
+      this.network.on('roomState', (msg) => {
+        // Synchronizacja paska fali
+        this.spawner.wave = msg.wave;
+        
+        // Zaktualizuj lub dodaj potwory
+        const serverEnemies = msg.enemies;
+        const currentEnemies = new Map();
+        
+        // Aktualizacja istniejacych
+        for (const e of this.em.enemies) {
+          if (e.id) currentEnemies.set(e.id, e);
+        }
+
+        const aliveIds = new Set();
+        
+        for (const se of serverEnemies) {
+          aliveIds.add(se.id);
+          let enemy = currentEnemies.get(se.id);
+          
+          if (!enemy) {
+            // Spawn na podstawie typu
+            if (se.type === 'FastZombie') {
+              enemy = new FastZombie({ position: new Vector2(se.x, se.y) });
+            } else {
+              enemy = new Zombie({ position: new Vector2(se.x, se.y) });
+            }
+            enemy.id = se.id;
+            enemy.hp = se.hp;
+            enemy.maxHp = se.maxHp;
+            this.em.addEnemy(enemy);
+          } else {
+            // Nadpisz pozycje i hp (można by tu zrobić lerp)
+            enemy.position.x = se.x;
+            enemy.position.y = se.y;
+            enemy.hp = se.hp;
+            enemy.maxHp = se.maxHp;
+          }
+        }
+        
+        // Usuniecie tych, których już nie ma na serwerze
+        for (const e of this.em.enemies) {
+          if (e.id && !aliveIds.has(e.id)) {
+            e.isAlive = false;
+          }
+        }
+      });
+
+      this.network.on('enemyDied', (msg) => {
+        const { enemyId, killerId } = msg;
+        const enemy = this.em.enemies.find(e => e.id === enemyId);
+        if (enemy) {
+          enemy.isAlive = false;
+          enemy.hp = 0; // Ensure drawing death fx? EntityManager does it if we hit locally
+          
+          // Jeśli to MY zabiliśmy, nalicz punkty
+          if (killerId === this.network.playerId) {
+            this.player.addScore(enemy.scoreValue);
+          }
+          
+          // Particle efx
+          this.em._spawnParticles(enemy.position, enemy.color, 12);
+        }
+      });
+    }
+
     this._animId = requestAnimationFrame((t) => this._loop(t));
+  }
+
+  _addRemotePlayer(id, name) {
+    if (this.remotePlayersMap.has(id)) return;
+    const rp = new RemotePlayer({
+      id,
+      name,
+      position: new Vector2(this.arena.centerX, this.arena.centerY),
+    });
+    this.remotePlayersMap.set(id, rp);
+    this.em.addPlayer(rp);
+  }
+
+  _removeRemotePlayer(id) {
+    const rp = this.remotePlayersMap.get(id);
+    if (rp) {
+      rp.isAlive = false;
+      this.remotePlayersMap.delete(id);
+    }
   }
 
   stop() {
@@ -77,9 +222,34 @@ export class Game {
     // Flush one-shot key events
     this.input.flush();
 
+    // Wysłanie danych do sieci PRZED update (bo drainBullets pochłania pociski)
+    if (this.network && this.player.isAlive) {
+      // 1. Wysłanie strzałów
+      for (const b of this.player.bulletsFired) {
+        this.network.sendBulletFired({
+          x: b.position.x, y: b.position.y,
+          vx: b.velocity.x, vy: b.velocity.y,
+          damage: b.damage
+        });
+      }
+
+      // 2. Wysłanie stanu gracza z lekkim opóźnieniem / co klatkę
+      this.network.sendPlayerUpdate({
+        x: this.player.position.x,
+        y: this.player.position.y,
+        angle: Math.atan2(this.player.facing.y, this.player.facing.x),
+        hp: this.player.hp,
+        score: this.player.score,
+        isAlive: this.player.isAlive,
+        color: this.player.color
+      });
+    }
+
     // Update
     if (this.player.isAlive) {
-      this.spawner.update(dt);
+      if (!this.network) {
+        this.spawner.update(dt);
+      }
     }
     this.em.update(dt);
 

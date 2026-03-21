@@ -43,20 +43,58 @@ export class EntityManager {
     // Update players
     for (const p of this.players) p.update(dt);
 
-    // === Collision: bullet → enemy ===
+    // === Collision: bullet → enemy & bullet → player (PVP) ===
     for (const b of this.bullets) {
       if (!b.isAlive) continue;
+
+      // 1. Z wrogami (PvE)
       for (const e of this.enemies) {
         if (!e.isAlive) continue;
         if (this._circles(b, e)) {
+          
+          // Wysyłamy informację na serwer, jeśli pocisk jest nasz
+          if (b.owner && b.owner.inputManager && this.onEnemyHit && e.id) {
+            this.onEnemyHit(e.id, b.damage, b.owner);
+          }
+
           e.takeDamage(b.damage);
           b.isAlive = false;
           this._spawnParticles(b.position, '#ffe066', 6);
 
-          if (e.isDead && b.owner) {
-            b.owner.addScore(e.scoreValue);
-            this._spawnParticles(e.position, e.color, 12);
+          // Punkty naliczamy lokalnie tylko dla potworów bez ID (singleplayer)
+          // Dla potworów z ID czekamy na "enemyDied" od serwera, ale możemy je schować
+          if (e.isDead) {
+             if (!e.id && b.owner) {
+               b.owner.addScore(e.scoreValue);
+             }
+             this._spawnParticles(e.position, e.color, 12);
           }
+          break;
+        }
+      }
+
+      if (!b.isAlive) continue;
+
+      // 2. Z innymi graczami (PvP)
+      for (const p of this.players) {
+        if (!p.isAlive) continue;
+        // Pocisk nie zadaje obrażeń strzelcowi
+        if (b.owner === p || p === b.owner) continue;
+
+        if (this._circles(b, p)) {
+          // Aby uniknąć podwójnego zliczania, każdy klient odejmuje HP "tylko własnemu graczowi" 
+          // (lub strzelający narzuca DMG, zależy od modelu - my uznajemy, że cel odlicza lokalnie).
+          // W prostym modelu zdejmujemy HP jeśli obiekt to P (instancja z inputManager - nasz własny), 
+          // a jak trafiliśmy w Remote - to uszkody tylko na jego ekranie (u niego będzie to Player lokalnie).
+          if (p.inputManager) {
+            p.takeDamage(b.damage);
+          } else if (b.owner && b.owner.inputManager) {
+            // nasz pocisk uderza obcego (nabicie punktów na ten moment)
+            b.owner.addScore(10); 
+          }
+          
+          b.isAlive = false;
+          this._spawnParticles(b.position, '#f44336', 8);
           break;
         }
       }
