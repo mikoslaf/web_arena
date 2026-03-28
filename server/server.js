@@ -28,7 +28,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const { randomUUID } = require('crypto');
 const ServerGameRoom = require('./ServerGameRoom.js');
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3217;
 const wss = new WebSocketServer({ port: PORT, host: '0.0.0.0' });
 
 /** @type {Map<string, ServerGameRoom>} */

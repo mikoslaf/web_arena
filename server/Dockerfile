@@ -7,6 +7,6 @@ RUN npm install --production
 
 COPY server.js ServerGameRoom.js ./
 
-EXPOSE 3001
+EXPOSE 3217
 
 CMD ["node", "server.js"]

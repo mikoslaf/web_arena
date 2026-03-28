@@ -51,8 +51,8 @@ Przykład: `http://10.40.31.245`
 
 Mapowanie portów (host -> kontener):
 
-- `80 -> 80` (frontend + websocket `/ws`)
-- `3001` nie jest publikowany na hosta (działa tylko wewnątrz sieci Dockera)
+- `8088 -> 80` (frontend + websocket `/ws`)
+- `3217` nie jest publikowany na hosta (działa tylko wewnątrz sieci Dockera)
 
 Zatrzymaj:
 
