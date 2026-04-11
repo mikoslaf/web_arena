@@ -124,6 +124,16 @@ Aby dodać nowy bonus:
 1. Utwórz klasę dziedziczącą po `PowerUp` i zaimplementuj `applyTo(player)`
 2. Dodaj wpis do `POWERUP_TYPES` w `PowerUpManager.js`
 
+## Boss na końcu fali
+
+Na końcu każdej fali pojawia się `BossZombie`:
+
+- większe HP i obrażenia niż zwykłe potwory
+- losowy wygląd (wariant kolorystyki i detali)
+- specjalne ataki:
+  - `Charge` (szarża)
+  - `Rage` (czasowe zwiększenie prędkości i obrażeń)
+
 ## Technologie
 
 - **Vanilla JavaScript** (ES6 Modules, OOP/klasy)

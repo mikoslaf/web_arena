@@ -4,6 +4,7 @@ import { RemotePlayer } from './entities/RemotePlayer.js';
 import { Bullet } from './entities/Bullet.js';
 import { Zombie } from './entities/Zombie.js';
 import { FastZombie } from './entities/FastZombie.js';
+import { BossZombie } from './entities/BossZombie.js';
 import { MedkitPowerUp } from './entities/powerups/MedkitPowerUp.js';
 import { RapidFirePowerUp } from './entities/powerups/RapidFirePowerUp.js';
 import { ShieldPowerUp } from './entities/powerups/ShieldPowerUp.js';
@@ -137,12 +138,16 @@ export class Game {
             // Spawn na podstawie typu
             if (se.type === 'FastZombie') {
               enemy = new FastZombie({ position: new Vector2(se.x, se.y) });
+            } else if (se.type === 'BossZombie') {
+              enemy = new BossZombie({ position: new Vector2(se.x, se.y), wave: se.wave || this.spawner.wave, variant: se.variant });
             } else {
               enemy = new Zombie({ position: new Vector2(se.x, se.y) });
             }
             enemy.id = se.id;
             enemy.hp = se.hp;
             enemy.maxHp = se.maxHp;
+            if (typeof se.damage === 'number') enemy.damage = se.damage;
+            if (typeof se.speed === 'number') enemy.speed = se.speed;
             this.em.addEnemy(enemy);
           } else {
             // Nadpisz pozycje i hp (można by tu zrobić lerp)
@@ -150,6 +155,8 @@ export class Game {
             enemy.position.y = se.y;
             enemy.hp = se.hp;
             enemy.maxHp = se.maxHp;
+            if (typeof se.damage === 'number') enemy.damage = se.damage;
+            if (typeof se.speed === 'number') enemy.speed = se.speed;
           }
         }
         

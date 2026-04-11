@@ -8,6 +8,15 @@ const POWERUP_TYPES = [
   { type: 'Shield', weight: 1.5, radius: 14, ttl: 18 }
 ];
 
+function randomBossVariant() {
+  return {
+    hueShift: Math.floor(Math.random() * 46) - 15,
+    spikes: 4 + Math.floor(Math.random() * 4),
+    eyeColor: Math.random() > 0.5 ? '#ffeb3b' : '#ff8a65',
+    scarOffset: (Math.random() - 0.5) * 10,
+  };
+}
+
 class ServerGameRoom {
   constructor(id, name, onBroadcast) {
     this.id = id;
@@ -23,6 +32,7 @@ class ServerGameRoom {
     this.spawnTimer = 1.5;
     this.maxEnemies = 20;
     this.waveDuration = 40;
+    this.lastBossWave = 0;
 
     this.maxPowerUps = 4;
     this.powerUpMinInterval = 8;
@@ -98,10 +108,13 @@ class ServerGameRoom {
     if (livingPlayers > 0) {
       this.waveTimer += dt;
       if (this.waveTimer >= this.waveDuration) {
+        const endedWave = this.wave;
         this.waveTimer = 0;
         this.wave++;
         this.spawnInterval = Math.max(1.2, this.spawnInterval - 0.3);
         this.maxEnemies = Math.min(40, this.maxEnemies + 3);
+
+        this.spawnBoss(endedWave);
       }
 
       if (this.enemies.size < this.maxEnemies) {
@@ -122,6 +135,11 @@ class ServerGameRoom {
 
       // Move enemies toward closest player
       this.enemies.forEach(e => {
+        if (e.type === 'BossZombie') {
+          this._updateBoss(e, targets, dt);
+          return;
+        }
+
         let closestDist = Infinity;
         let target = null;
         
@@ -215,6 +233,90 @@ class ServerGameRoom {
       radius: chosen.radius,
       scoreValue: chosen.scoreValue,
     });
+  }
+
+  spawnBoss(endedWave) {
+    if (this.lastBossWave >= endedWave) return;
+    this.lastBossWave = endedWave;
+
+    const pos = this._randomEdgePosition(32);
+    const bossId = randomUUID();
+    const hp = 420 + (endedWave - 1) * 90;
+    const damage = 24 + (endedWave - 1) * 2;
+
+    this.enemies.set(bossId, {
+      id: bossId,
+      type: 'BossZombie',
+      wave: endedWave,
+      x: pos.x,
+      y: pos.y,
+      hp,
+      maxHp: hp,
+      speed: 60,
+      baseSpeed: 60,
+      damage,
+      baseDamage: damage,
+      radius: 32,
+      scoreValue: 220 + (endedWave - 1) * 40,
+      variant: randomBossVariant(),
+      rageCooldown: 7 + Math.random() * 2,
+      rageTimer: 0,
+      chargeCooldown: 3.5 + Math.random() * 1.5,
+      chargeTimer: 0,
+      chargeDirX: 1,
+      chargeDirY: 0,
+    });
+  }
+
+  _updateBoss(boss, targets, dt) {
+    boss.rageCooldown -= dt;
+    if (boss.rageCooldown <= 0 && boss.rageTimer <= 0) {
+      boss.rageTimer = 2.2;
+      boss.rageCooldown = 8 + Math.random() * 3;
+    }
+
+    if (boss.rageTimer > 0) {
+      boss.rageTimer -= dt;
+      boss.speed = boss.baseSpeed * 1.35;
+      boss.damage = boss.baseDamage * 2.0;
+    } else {
+      boss.speed = boss.baseSpeed;
+      boss.damage = boss.baseDamage;
+    }
+
+    let closestDist = Infinity;
+    let target = null;
+    for (const p of targets) {
+      const dx = p.x - boss.x;
+      const dy = p.y - boss.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < closestDist) {
+        closestDist = distSq;
+        target = { dx, dy, d: Math.sqrt(distSq) };
+      }
+    }
+
+    boss.chargeCooldown -= dt;
+    if (boss.chargeCooldown <= 0 && boss.chargeTimer <= 0 && target && target.d > 8) {
+      boss.chargeDirX = target.dx / target.d;
+      boss.chargeDirY = target.dy / target.d;
+      boss.chargeTimer = 0.75;
+      boss.chargeCooldown = 4 + Math.random() * 2;
+    }
+
+    if (boss.chargeTimer > 0) {
+      boss.chargeTimer -= dt;
+      boss.x += boss.chargeDirX * boss.speed * 2.4 * dt;
+      boss.y += boss.chargeDirY * boss.speed * 2.4 * dt;
+    } else if (target && target.d > 0) {
+      boss.x += (target.dx / target.d) * boss.speed * dt;
+      boss.y += (target.dy / target.d) * boss.speed * dt;
+    }
+
+    // Keep boss inside arena bounds.
+    const { x, y, w, h } = this.bounds;
+    boss.x = Math.max(x + boss.radius, Math.min(x + w - boss.radius, boss.x));
+    boss.y = Math.max(y + boss.radius, Math.min(y + h - boss.radius, boss.y));
   }
 
   spawnPowerUp() {

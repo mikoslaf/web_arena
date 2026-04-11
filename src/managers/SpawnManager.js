@@ -1,5 +1,6 @@
 import { Zombie } from '../entities/Zombie.js';
 import { FastZombie } from '../entities/FastZombie.js';
+import { BossZombie } from '../entities/BossZombie.js';
 import { Vector2 } from '../Vector2.js';
 
 /**
@@ -48,17 +49,21 @@ export class SpawnManager {
     this.maxEnemies = 20;       // hard cap so game stays playable
     this.waveTimer = 0;
     this.waveDuration = 40;    // seconds per wave
+    this._lastBossWave = 0;
   }
 
   update(dt) {
     // Advance wave
     this.waveTimer += dt;
     if (this.waveTimer >= this.waveDuration) {
+      const endedWave = this.wave;
       this.waveTimer = 0;
       this.wave++;
       // Scale difficulty: more enemies, shorter intervals per wave
       this.spawnInterval = Math.max(1.2, this.spawnInterval - 0.3);
       this.maxEnemies    = Math.min(40, this.maxEnemies + 3);
+
+      this._spawnBossForWave(endedWave);
     }
 
     if (this.entityManager.totalMonsters >= this.maxEnemies) return;
@@ -68,6 +73,15 @@ export class SpawnManager {
       this._spawnTimer = this.spawnInterval;
       this._spawnOne();
     }
+  }
+
+  _spawnBossForWave(wave) {
+    if (this._lastBossWave >= wave) return;
+    this._lastBossWave = wave;
+
+    const pos = this._randomEdgePosition(32);
+    const boss = new BossZombie({ position: pos, wave });
+    this.entityManager.addEnemy(boss);
   }
 
   _spawnOne() {
