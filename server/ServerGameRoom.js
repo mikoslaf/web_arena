@@ -24,7 +24,7 @@ class ServerGameRoom {
   }
 
   addPlayer(playerId, info) {
-    this.players.set(playerId, { id: playerId, name: info.name, x: null, y: null, isAlive: true, ws: info.ws });
+    this.players.set(playerId, { id: playerId, name: info.name, x: null, y: null, isAlive: true, score: 0, ws: info.ws });
   }
 
   removePlayer(playerId) {
@@ -50,8 +50,20 @@ class ServerGameRoom {
     
     e.hp -= damage;
     if (e.hp <= 0) {
+      const killer = this.players.get(playerId);
+      const scoreValue = e.scoreValue || 0;
+      if (killer) {
+        killer.score += scoreValue;
+      }
+
       this.enemies.delete(enemyId);
-      this.onBroadcast(this, { type: 'enemyDied', enemyId, killerId: playerId });
+      this.onBroadcast(this, {
+        type: 'enemyDied',
+        enemyId,
+        killerId: playerId,
+        scoreValue,
+        killerScore: killer ? killer.score : 0,
+      });
     }
   }
 
@@ -121,8 +133,8 @@ class ServerGameRoom {
 
   spawnEnemy() {
     const types = [
-      { type: 'Zombie', weight: 3, minWave: 1, hp: 50, speed: 60, radius: 15 },
-      { type: 'FastZombie', weight: 1, minWave: 2, hp: 30, speed: 120, radius: 12 }
+      { type: 'Zombie', weight: 3, minWave: 1, hp: 50, speed: 60, radius: 15, scoreValue: 10 },
+      { type: 'FastZombie', weight: 1, minWave: 2, hp: 30, speed: 120, radius: 12, scoreValue: 25 }
     ];
 
     const eligible = types.filter(t => t.minWave <= this.wave);
@@ -147,7 +159,8 @@ class ServerGameRoom {
       hp: chosen.hp,
       maxHp: chosen.hp,
       speed: chosen.speed,
-      radius: chosen.radius
+      radius: chosen.radius,
+      scoreValue: chosen.scoreValue,
     });
   }
 

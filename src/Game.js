@@ -158,15 +158,16 @@ export class Game {
       this.network.on('enemyDied', (msg) => {
         const { enemyId, killerId } = msg;
         const enemy = this.em.enemies.find(e => e.id === enemyId);
+
+        // Always award score from server event, even if the enemy was already cleaned up locally.
+        if (killerId === this.network.playerId) {
+          this.player.addScore(msg.scoreValue ?? 0);
+        }
+
         if (enemy) {
           enemy.isAlive = false;
           enemy.hp = 0; // Ensure drawing death fx? EntityManager does it if we hit locally
-          
-          // Jeśli to MY zabiliśmy, nalicz punkty
-          if (killerId === this.network.playerId) {
-            this.player.addScore(enemy.scoreValue);
-          }
-          
+
           // Particle efx
           this.em._spawnParticles(enemy.position, enemy.color, 12);
         }
