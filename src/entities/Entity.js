@@ -18,10 +18,14 @@ export class Entity {
   get isDead() { return !this.isAlive || this.hp <= 0; }
 
   takeDamage(amount) {
+    const wasAlive = this.isAlive;
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
       this.isAlive = false;
+      if (wasAlive && typeof this.onDeath === 'function') {
+        this.onDeath();
+      }
     }
   }
 

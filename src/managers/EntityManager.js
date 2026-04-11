@@ -1,4 +1,5 @@
 import { Vector2 } from '../Vector2.js';
+import { Corpse } from '../entities/Corpse.js';
 
 /**
  * EntityManager – owns all live entities and handles collision detection.
@@ -14,11 +15,14 @@ export class EntityManager {
 
     /** Particle effects (visual only) */
     this.particles = [];
+    /** Static corpses with timeout */
+    this.corpses = [];
   }
 
   addPlayer(player) { this.players.push(player); }
   addEnemy(enemy)   { this.enemies.push(enemy); }
   addBullet(bullet) { this.bullets.push(bullet); }
+  addCorpse(corpse) { this.corpses.push(corpse); }
 
   /** Update all entities and check collisions */
   update(dt) {
@@ -42,6 +46,20 @@ export class EntityManager {
 
     // Update players
     for (const p of this.players) p.update(dt);
+
+    // Spawn static corpse once death animation is finished
+    for (const p of this.players) {
+      if (p.isAlive) continue;
+      if (p._corpseSpawned) continue;
+      if ((p._deathAnim || 0) > 0) continue;
+
+      this.addCorpse(new Corpse({
+        position: p.position,
+        name: p.name,
+        ttl: 30,
+      }));
+      p._corpseSpawned = true;
+    }
 
     // === Collision: bullet → enemy & bullet → player (PVP) ===
     for (const b of this.bullets) {
@@ -143,6 +161,9 @@ export class EntityManager {
       pt.vy += 60 * dt; // gravity
     }
 
+    // Update corpse timers
+    for (const c of this.corpses) c.update(dt);
+
     // Cleanup dead entities
     this._cleanup();
   }
@@ -164,6 +185,7 @@ export class EntityManager {
     ctx.globalAlpha = 1;
 
     for (const e of this.enemies)  e.draw(ctx);
+    for (const c of this.corpses)  c.draw(ctx);
     for (const p of this.players)  p.draw(ctx);
     for (const b of this.bullets)  b.draw(ctx);
   }
@@ -208,6 +230,9 @@ export class EntityManager {
     this.bullets  = this.bullets.filter(b => b.isAlive);
     this.enemies  = this.enemies.filter(e => e.isAlive);
     this.particles = this.particles.filter(p => p.life > 0);
-    // Keep dead players (show death screen) – just flag isAlive = false
+    this.corpses = this.corpses.filter(c => c.isAlive);
+
+    // Remove dead remote players once their corpse exists; keep local player for HUD/game over.
+    this.players = this.players.filter((p) => p.isAlive || !!p.inputManager);
   }
 }

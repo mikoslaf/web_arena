@@ -224,17 +224,19 @@ export class Game {
     this.input.flush();
 
     // Wysłanie danych do sieci PRZED update (bo drainBullets pochłania pociski)
-    if (this.network && this.player.isAlive) {
-      // 1. Wysłanie strzałów
-      for (const b of this.player.bulletsFired) {
-        this.network.sendBulletFired({
-          x: b.position.x, y: b.position.y,
-          vx: b.velocity.x, vy: b.velocity.y,
-          damage: b.damage
-        });
+    if (this.network) {
+      // 1. Wysłanie strzałów tylko gdy gracz żyje
+      if (this.player.isAlive) {
+        for (const b of this.player.bulletsFired) {
+          this.network.sendBulletFired({
+            x: b.position.x, y: b.position.y,
+            vx: b.velocity.x, vy: b.velocity.y,
+            damage: b.damage
+          });
+        }
       }
 
-      // 2. Wysłanie stanu gracza z lekkim opóźnieniem / co klatkę
+      // 2. Stan gracza wysyłamy zawsze (także isAlive=false po śmierci)
       this.network.sendPlayerUpdate({
         x: this.player.position.x,
         y: this.player.position.y,

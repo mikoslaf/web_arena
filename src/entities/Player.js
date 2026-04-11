@@ -28,10 +28,16 @@ export class Player extends Entity {
 
     // visual
     this._hitFlash = 0;
+    this._deathAnim = 0;
+    this._deathAnimDuration = 0.6;
+    this._corpseSpawned = false;
   }
 
   update(dt) {
-    if (!this.isAlive) return;
+    if (!this.isAlive) {
+      if (this._deathAnim > 0) this._deathAnim -= dt;
+      return;
+    }
 
     const input = this.inputManager;
     const dx = (input.isDown('KeyD') ? 1 : 0) - (input.isDown('KeyA') ? 1 : 0);
@@ -73,6 +79,10 @@ export class Player extends Entity {
     super.takeDamage(amount);
   }
 
+  onDeath() {
+    this._deathAnim = this._deathAnimDuration;
+  }
+
   addScore(points) {
     this.score += points;
   }
@@ -83,8 +93,14 @@ export class Player extends Entity {
   }
 
   draw(ctx) {
-    if (!this.isAlive) return;
+    if (!this.isAlive && this._deathAnim <= 0) return;
     ctx.save();
+
+    const isDying = !this.isAlive;
+    const deathPct = isDying ? Math.max(0, this._deathAnim / this._deathAnimDuration) : 1;
+    if (isDying) {
+      ctx.globalAlpha = deathPct;
+    }
 
     // Body glow on hit
     if (this._hitFlash > 0) {
@@ -113,7 +129,9 @@ export class Player extends Entity {
     ctx.restore();
 
     // HP bar
-    this.drawHpBar(ctx);
+    if (this.isAlive) {
+      this.drawHpBar(ctx);
+    }
 
     // Name label
     ctx.fillStyle = '#fff';
