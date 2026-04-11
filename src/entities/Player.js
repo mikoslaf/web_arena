@@ -64,9 +64,11 @@ export class Player extends Entity {
     if (this._hitFlash > 0) this._hitFlash -= dt;
   }
 
-  takeDamage(amount) {
-    if (this.iframes > 0) return;
-    this.iframes = 0.5;
+  takeDamage(amount, { bypassIframes = false } = {}) {
+    if (!bypassIframes && this.iframes > 0) return;
+    if (!bypassIframes) {
+      this.iframes = 0.5;
+    }
     this._hitFlash = 0.15;
     super.takeDamage(amount);
   }

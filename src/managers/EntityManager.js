@@ -101,14 +101,21 @@ export class EntityManager {
     }
 
     // === Collision: enemy → player (contact damage) ===
+    // Sum contact DPS from all touching enemies in this frame.
+    const contactDamageByPlayer = new Map();
     for (const e of this.enemies) {
       if (!e.isAlive) continue;
       for (const p of this.players) {
         if (!p.isAlive) continue;
         if (this._circles(e, p)) {
-          p.takeDamage(e.damage * dt);
+          const acc = contactDamageByPlayer.get(p) || 0;
+          contactDamageByPlayer.set(p, acc + e.damage * dt);
         }
       }
+    }
+
+    for (const [p, damage] of contactDamageByPlayer) {
+      p.takeDamage(damage, { bypassIframes: true });
     }
 
     // === Arena wall clamp for players ===
