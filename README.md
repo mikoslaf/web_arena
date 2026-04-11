@@ -52,7 +52,7 @@ Przykład: `http://10.40.31.245`
 Mapowanie portów (host -> kontener):
 
 - `8088 -> 80` (frontend + websocket `/ws`)
-- `3217` nie jest publikowany na hosta (działa tylko wewnątrz sieci Dockera)
+- Backend WebSocket (`:3217`) działa wewnątrz tego samego kontenera i nie jest wystawiany na hosta
 
 Zatrzymaj:
 
@@ -67,9 +67,10 @@ arena/
 ├── index.html          # Punkt wejścia
 ├── main.js             # Bootstrap gry
 ├── style.css           # Style UI
-├── Dockerfile          # Obraz nginx:alpine
-├── docker-compose.yml  # Konfiguracja Docker Compose
-├── nginx.conf          # Konfiguracja serwera nginx
+├── Dockerfile          # Jeden obraz: nginx + node (backend)
+├── docker-compose.yml  # Jedna usługa (jeden kontener)
+├── nginx.conf          # Konfiguracja nginx + proxy /ws -> localhost:3217
+├── docker/start.sh     # Start backendu i nginx w kontenerze
 └── src/
     ├── Game.js             # Główna klasa gry (game loop)
     ├── Arena.js            # Tło / granice areny
