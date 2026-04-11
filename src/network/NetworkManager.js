@@ -121,7 +121,7 @@ export class NetworkManager {
 
   /**
    * Send local player state to the server (called every frame).
-   * @param {{ x: number, y: number, angle: number, hp: number, score: number, isAlive: boolean, color: string }} state
+    * @param {{ x: number, y: number, angle: number, hp: number, score: number, isAlive: boolean, color: string, shieldActive?: boolean }} state
    */
   sendPlayerUpdate(state) {
     this._send({ type: 'playerUpdate', state });

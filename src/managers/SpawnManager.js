@@ -82,23 +82,26 @@ export class SpawnManager {
       if (r <= 0) { chosen = t; break; }
     }
 
-    const pos = this._randomEdgePosition();
+    const probe = chosen.factory(new Vector2(0, 0));
+    const spawnRadius = probe.radius || 16;
+    const pos = this._randomEdgePosition(spawnRadius);
     const enemy = chosen.factory(pos);
     this.entityManager.addEnemy(enemy);
   }
 
   /** Spawn at a random point along the arena perimeter */
-  _randomEdgePosition() {
+  _randomEdgePosition(radius = 16) {
     const { x, y, w, h } = this.bounds;
     const perimeter = 2 * (w + h);
     let t = Math.random() * perimeter;
-    const margin = 10;
+    // Keep enemy center inside arena by at least its own radius.
+    const margin = Math.max(10, radius + 2);
 
-    if (t < w)          return new Vector2(x + t,     y + margin);
+    if (t < w)          return new Vector2(x + t, y + margin);
     t -= w;
     if (t < h)          return new Vector2(x + w - margin, y + t);
     t -= h;
-    if (t < w)          return new Vector2(x + w - t,   y + h - margin);
+    if (t < w)          return new Vector2(x + w - t, y + h - margin);
     t -= w;
     return              new Vector2(x + margin, y + h - t);
   }

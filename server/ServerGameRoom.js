@@ -201,7 +201,7 @@ class ServerGameRoom {
       if (r <= 0) { chosen = t; break; }
     }
 
-    const pos = this._randomEdgePosition();
+    const pos = this._randomEdgePosition(chosen.radius);
     const enemyId = randomUUID();
     
     this.enemies.set(enemyId, {
@@ -256,11 +256,12 @@ class ServerGameRoom {
     return { x: rx, y: ry };
   }
 
-  _randomEdgePosition() {
+  _randomEdgePosition(radius = 14) {
     const { x, y, w, h } = this.bounds;
     const perimeter = 2 * (w + h);
     let t = Math.random() * perimeter;
-    const margin = 10;
+    // Keep spawn point fully inside map so enemy does not clip into walls.
+    const margin = Math.max(10, radius + 2);
 
     if (t < w) return { x: x + t, y: y + margin };
     t -= w;

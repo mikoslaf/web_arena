@@ -12,6 +12,7 @@ export class RemotePlayer extends Entity {
     this.score = 0;
     this.facing = new Vector2(1, 0); // last move direction received
     this.targetPosition = this.position.clone();
+    this.shieldActive = false;
     
     // visual
     this._hitFlash = 0;
@@ -49,6 +50,7 @@ export class RemotePlayer extends Entity {
     }
     
     this.score = state.score;
+    this.shieldActive = !!state.shieldActive;
 
     if (this.isAlive && !state.isAlive) {
       this.onDeath();
@@ -98,6 +100,15 @@ export class RemotePlayer extends Entity {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 3;
     ctx.stroke();
+
+    if (this.shieldActive) {
+      const pulse = Math.sin(performance.now() * 0.01) * 1.2;
+      ctx.beginPath();
+      ctx.arc(this.position.x, this.position.y, this.radius + 6 + pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(100,181,246,0.9)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
 
     ctx.restore();
 

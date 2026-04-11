@@ -294,7 +294,8 @@ export class Game {
         hp: this.player.hp,
         score: this.player.score,
         isAlive: this.player.isAlive,
-        color: this.player.color
+        color: this.player.color,
+        shieldActive: this.player.shieldTimer > 0
       });
     }
 
