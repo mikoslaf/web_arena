@@ -1,11 +1,20 @@
 const { randomUUID } = require('crypto');
 
+const PLAYER_RADIUS = 18;
+
+const POWERUP_TYPES = [
+  { type: 'Medkit', weight: 2.5, radius: 14, ttl: 20 },
+  { type: 'RapidFire', weight: 1.8, radius: 14, ttl: 18 },
+  { type: 'Shield', weight: 1.5, radius: 14, ttl: 18 }
+];
+
 class ServerGameRoom {
   constructor(id, name, onBroadcast) {
     this.id = id;
     this.name = name;
     this.players = new Map(); // playerId -> { id, name, x, y, isAlive, ws }
     this.enemies = new Map(); // enemyId -> { id, type, x, y, speed, hp, maxHp }
+    this.powerUps = new Map(); // powerUpId -> { id, type, x, y, radius, ttl }
     this.onBroadcast = onBroadcast;
 
     this.wave = 1;
@@ -14,6 +23,11 @@ class ServerGameRoom {
     this.spawnTimer = 1.5;
     this.maxEnemies = 20;
     this.waveDuration = 40;
+
+    this.maxPowerUps = 4;
+    this.powerUpMinInterval = 8;
+    this.powerUpMaxInterval = 15;
+    this.powerUpSpawnTimer = 6;
 
     // Arena bounds (zakĹ‚adamy typowe, klient musi byÄ‡ podobnego rozmiaru lub poinformowaÄ‡)
     // Aby byĹ‚o uniwersalnie: zakĹ‚adamy obszar bliski ekranowi.
@@ -98,6 +112,14 @@ class ServerGameRoom {
         }
       }
 
+      if (this.powerUps.size < this.maxPowerUps) {
+        this.powerUpSpawnTimer -= dt;
+        if (this.powerUpSpawnTimer <= 0) {
+          this.powerUpSpawnTimer = this._nextPowerUpSpawnTime();
+          this.spawnPowerUp();
+        }
+      }
+
       // Move enemies toward closest player
       this.enemies.forEach(e => {
         let closestDist = Infinity;
@@ -119,6 +141,36 @@ class ServerGameRoom {
           e.y += (target.dy / target.d) * e.speed * dt;
         }
       });
+
+      // Update power-up lifetime and resolve pickup once for all players.
+      for (const pu of this.powerUps.values()) {
+        pu.ttl -= dt;
+        if (pu.ttl <= 0) {
+          this.powerUps.delete(pu.id);
+          continue;
+        }
+
+        let pickedBy = null;
+        for (const p of targets) {
+          const dx = p.x - pu.x;
+          const dy = p.y - pu.y;
+          const rr = PLAYER_RADIUS + pu.radius;
+          if ((dx * dx + dy * dy) <= rr * rr) {
+            pickedBy = p;
+            break;
+          }
+        }
+
+        if (pickedBy) {
+          this.powerUps.delete(pu.id);
+          this.onBroadcast(this, {
+            type: 'powerUpTaken',
+            powerUpId: pu.id,
+            powerUpType: pu.type,
+            playerId: pickedBy.id,
+          });
+        }
+      }
     }
 
     // Broadcast state to room
@@ -126,7 +178,8 @@ class ServerGameRoom {
       this.onBroadcast(this, {
         type: 'roomState',
         wave: this.wave,
-        enemies: Array.from(this.enemies.values())
+        enemies: Array.from(this.enemies.values()),
+        powerUps: Array.from(this.powerUps.values()),
       });
     }
   }
@@ -162,6 +215,45 @@ class ServerGameRoom {
       radius: chosen.radius,
       scoreValue: chosen.scoreValue,
     });
+  }
+
+  spawnPowerUp() {
+    if (!POWERUP_TYPES.length) return;
+
+    const totalWeight = POWERUP_TYPES.reduce((s, t) => s + t.weight, 0);
+    let r = Math.random() * totalWeight;
+    let chosen = POWERUP_TYPES[POWERUP_TYPES.length - 1];
+    for (const t of POWERUP_TYPES) {
+      r -= t.weight;
+      if (r <= 0) {
+        chosen = t;
+        break;
+      }
+    }
+
+    const pos = this._randomInnerPosition();
+    const id = randomUUID();
+    this.powerUps.set(id, {
+      id,
+      type: chosen.type,
+      x: pos.x,
+      y: pos.y,
+      radius: chosen.radius,
+      ttl: chosen.ttl,
+      maxTtl: chosen.ttl,
+    });
+  }
+
+  _nextPowerUpSpawnTime() {
+    return this.powerUpMinInterval + Math.random() * (this.powerUpMaxInterval - this.powerUpMinInterval);
+  }
+
+  _randomInnerPosition() {
+    const { x, y, w, h } = this.bounds;
+    const margin = 30;
+    const rx = x + margin + Math.random() * Math.max(1, w - margin * 2);
+    const ry = y + margin + Math.random() * Math.max(1, h - margin * 2);
+    return { x: rx, y: ry };
   }
 
   _randomEdgePosition() {

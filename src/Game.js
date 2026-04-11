@@ -4,8 +4,12 @@ import { RemotePlayer } from './entities/RemotePlayer.js';
 import { Bullet } from './entities/Bullet.js';
 import { Zombie } from './entities/Zombie.js';
 import { FastZombie } from './entities/FastZombie.js';
+import { MedkitPowerUp } from './entities/powerups/MedkitPowerUp.js';
+import { RapidFirePowerUp } from './entities/powerups/RapidFirePowerUp.js';
+import { ShieldPowerUp } from './entities/powerups/ShieldPowerUp.js';
 import { EntityManager } from './managers/EntityManager.js';
 import { SpawnManager } from './managers/SpawnManager.js';
+import { PowerUpManager } from './managers/PowerUpManager.js';
 import { InputManager } from './managers/InputManager.js';
 import { HUD } from './hud/HUD.js';
 import { Vector2 } from './Vector2.js';
@@ -48,6 +52,7 @@ export class Game {
 
     // Spawn manager
     this.spawner = new SpawnManager(this.em, this.arena.bounds);
+    this.powerUps = new PowerUpManager(this.em, this.arena.bounds);
 
     // HUD
     this.hud = new HUD(this.player, this.em);
@@ -58,6 +63,7 @@ export class Game {
 
   start() {
     this.remotePlayersMap = new Map();
+    this.em.setPowerUpAuthority(this.network ? 'server' : 'local');
     
     // Ustawienie nazwy gracza
     if (this.localPlayerName) {
@@ -153,6 +159,49 @@ export class Game {
             e.isAlive = false;
           }
         }
+
+        // Synchronizacja power-upów z serwera
+        const serverPowerUps = msg.powerUps || [];
+        const currentPowerUps = new Map();
+        for (const pu of this.em.powerUps) {
+          if (pu.serverManaged && pu.id) {
+            currentPowerUps.set(pu.id, pu);
+          }
+        }
+
+        const alivePowerUpIds = new Set();
+        for (const spu of serverPowerUps) {
+          alivePowerUpIds.add(spu.id);
+          let powerUp = currentPowerUps.get(spu.id);
+          if (!powerUp) {
+            powerUp = this._createPowerUpByType(spu.type, new Vector2(spu.x, spu.y));
+            if (!powerUp) continue;
+            powerUp.id = spu.id;
+            powerUp.serverManaged = true;
+            this.em.addPowerUp(powerUp);
+          } else {
+            powerUp.position.x = spu.x;
+            powerUp.position.y = spu.y;
+          }
+        }
+
+        for (const pu of this.em.powerUps) {
+          if (pu.serverManaged && pu.id && !alivePowerUpIds.has(pu.id)) {
+            pu.isAlive = false;
+          }
+        }
+      });
+
+      this.network.on('powerUpTaken', (msg) => {
+        const taken = this.em.powerUps.find(pu => pu.id === msg.powerUpId);
+        if (taken) {
+          taken.isAlive = false;
+          this.em._spawnParticles(taken.position, taken.color || '#90caf9', 10);
+        }
+
+        if (msg.playerId === this.network.playerId) {
+          this._applyPowerUpTypeToLocalPlayer(msg.powerUpType);
+        }
       });
 
       this.network.on('enemyDied', (msg) => {
@@ -213,6 +262,7 @@ export class Game {
     if (this.arena) {
       this.arena.resize(this.canvas.width, this.canvas.height);
       this.em?.setArenaBounds(this.arena.x, this.arena.y, this.arena.w, this.arena.h);
+      this.powerUps?.setBounds(this.arena.bounds);
     }
   }
 
@@ -254,6 +304,9 @@ export class Game {
         this.spawner.update(dt);
       }
     }
+    if (!this.network) {
+      this.powerUps.update(dt);
+    }
     this.em.update(dt);
 
     // HUD wave sync
@@ -267,5 +320,24 @@ export class Game {
     this.hud.draw(ctx);
 
     this._animId = requestAnimationFrame((t) => this._loop(t));
+  }
+
+  _createPowerUpByType(type, position) {
+    switch (type) {
+      case 'Medkit':
+        return new MedkitPowerUp({ position });
+      case 'RapidFire':
+        return new RapidFirePowerUp({ position });
+      case 'Shield':
+        return new ShieldPowerUp({ position });
+      default:
+        return null;
+    }
+  }
+
+  _applyPowerUpTypeToLocalPlayer(type) {
+    const bonus = this._createPowerUpByType(type, this.player.position.clone());
+    if (!bonus) return;
+    bonus.applyTo(this.player);
   }
 }

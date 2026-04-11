@@ -105,6 +105,25 @@ arena/
 },
 ```
 
+## Power-upy (losowe wzmocnienia)
+
+Na mapie pojawiają się losowe bonusy:
+
+- `+` apteczka (leczenie)
+- `RF` szybsze strzelanie (czasowy buff)
+- `S` tarcza (czasowa odporność na obrażenia)
+
+System jest obiektowy i łatwy do rozbudowy:
+
+- baza: `src/entities/powerups/PowerUp.js`
+- typy: `src/entities/powerups/*.js`
+- losowy spawn + wagi: `src/managers/PowerUpManager.js` (`POWERUP_TYPES`)
+
+Aby dodać nowy bonus:
+
+1. Utwórz klasę dziedziczącą po `PowerUp` i zaimplementuj `applyTo(player)`
+2. Dodaj wpis do `POWERUP_TYPES` w `PowerUpManager.js`
+
 ## Technologie
 
 - **Vanilla JavaScript** (ES6 Modules, OOP/klasy)

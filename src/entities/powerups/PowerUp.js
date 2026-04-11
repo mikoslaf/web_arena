@@ -15,6 +15,7 @@ export class PowerUp extends Entity {
   }
 
   update(dt) {
+    if (this.serverManaged) return;
     this.ttl -= dt;
     this.pulse += dt * 5;
     if (this.ttl <= 0) {

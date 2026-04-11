@@ -17,12 +17,18 @@ export class EntityManager {
     this.particles = [];
     /** Static corpses with timeout */
     this.corpses = [];
+    /** Active power-ups on arena */
+    this.powerUps = [];
+    /** local | server */
+    this.powerUpAuthority = 'local';
   }
 
   addPlayer(player) { this.players.push(player); }
   addEnemy(enemy)   { this.enemies.push(enemy); }
   addBullet(bullet) { this.bullets.push(bullet); }
   addCorpse(corpse) { this.corpses.push(corpse); }
+  addPowerUp(powerUp) { this.powerUps.push(powerUp); }
+  setPowerUpAuthority(authority) { this.powerUpAuthority = authority; }
 
   /** Update all entities and check collisions */
   update(dt) {
@@ -36,6 +42,9 @@ export class EntityManager {
 
     // Update bullets
     for (const b of this.bullets) b.update(dt);
+
+    // Update power-ups
+    for (const pu of this.powerUps) pu.update(dt);
 
     // Update enemies – assign nearest player as target
     for (const e of this.enemies) {
@@ -136,6 +145,26 @@ export class EntityManager {
       p.takeDamage(damage, { bypassIframes: true });
     }
 
+    // === Collision: player → power-up ===
+    // In multiplayer the server is authoritative and handles pickup resolution.
+    if (this.powerUpAuthority === 'local') {
+      for (const pu of this.powerUps) {
+        if (!pu.isAlive) continue;
+        for (const p of this.players) {
+          if (!p.isAlive) continue;
+          if (!p.inputManager) continue;
+
+          if (this._circles(pu, p)) {
+            if (pu.applyTo(p)) {
+              pu.isAlive = false;
+              this._spawnParticles(pu.position, pu.color || '#90caf9', 10);
+            }
+            break;
+          }
+        }
+      }
+    }
+
     // === Arena wall clamp for players ===
     // (Arena will inject its bounds via setArenaBounds)
     if (this._arenaBounds) {
@@ -185,6 +214,7 @@ export class EntityManager {
     ctx.globalAlpha = 1;
 
     for (const e of this.enemies)  e.draw(ctx);
+    for (const pu of this.powerUps) pu.draw(ctx);
     for (const c of this.corpses)  c.draw(ctx);
     for (const p of this.players)  p.draw(ctx);
     for (const b of this.bullets)  b.draw(ctx);
@@ -231,6 +261,7 @@ export class EntityManager {
     this.enemies  = this.enemies.filter(e => e.isAlive);
     this.particles = this.particles.filter(p => p.life > 0);
     this.corpses = this.corpses.filter(c => c.isAlive);
+    this.powerUps = this.powerUps.filter(pu => pu.isAlive);
 
     // Remove dead remote players once their corpse exists; keep local player for HUD/game over.
     this.players = this.players.filter((p) => p.isAlive || !!p.inputManager);
