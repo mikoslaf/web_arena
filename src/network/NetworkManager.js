@@ -142,6 +142,14 @@ export class NetworkManager {
     this._send({ type: 'enemyHit', enemyId, damage });
   }
 
+  /**
+   * Notify server that a self-detonating enemy exploded on client side.
+   * @param {string} enemyId
+   */
+  sendEnemyDetonated(enemyId) {
+    this._send({ type: 'enemyDetonated', enemyId });
+  }
+
   // ── Private ────────────────────────────────────────────────────────────────
 
   _send(data) {

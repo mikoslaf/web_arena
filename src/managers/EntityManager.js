@@ -51,6 +51,10 @@ export class EntityManager {
       if (!e.isAlive) continue;
       e.target = this._nearestAlivePlayer(e.position);
       e.update(dt);
+
+      // Some enemies can spawn projectiles (same pattern as Player.drainBullets).
+      const enemyBullets = typeof e.drainBullets === 'function' ? e.drainBullets() : [];
+      this.bullets.push(...enemyBullets);
     }
 
     // Update players
@@ -73,30 +77,33 @@ export class EntityManager {
     // === Collision: bullet → enemy & bullet → player (PVP) ===
     for (const b of this.bullets) {
       if (!b.isAlive) continue;
+      const isEnemyBullet = b.faction === 'enemy';
 
       // 1. Z wrogami (PvE)
-      for (const e of this.enemies) {
-        if (!e.isAlive) continue;
-        if (this._circles(b, e)) {
-          
-          // Wysyłamy informację na serwer, jeśli pocisk jest nasz
-          if (b.owner && b.owner.inputManager && this.onEnemyHit && e.id) {
-            this.onEnemyHit(e.id, b.damage, b.owner);
-          }
+      if (!isEnemyBullet) {
+        for (const e of this.enemies) {
+          if (!e.isAlive) continue;
+          if (this._circles(b, e)) {
 
-          e.takeDamage(b.damage);
-          b.isAlive = false;
-          this._spawnParticles(b.position, '#ffe066', 6);
+            // Wysyłamy informację na serwer, jeśli pocisk jest nasz
+            if (b.owner && b.owner.inputManager && this.onEnemyHit && e.id) {
+              this.onEnemyHit(e.id, b.damage, b.owner);
+            }
 
-          // Punkty naliczamy lokalnie tylko dla potworów bez ID (singleplayer)
-          // Dla potworów z ID czekamy na "enemyDied" od serwera, ale możemy je schować
-          if (e.isDead) {
-             if (!e.id && b.owner) {
-               b.owner.addScore(e.scoreValue);
-             }
-             this._spawnParticles(e.position, e.color, 12);
+            e.takeDamage(b.damage);
+            b.isAlive = false;
+            this._spawnParticles(b.position, '#ffe066', 6);
+
+            // Punkty naliczamy lokalnie tylko dla potworów bez ID (singleplayer)
+            // Dla potworów z ID czekamy na "enemyDied" od serwera, ale możemy je schować
+            if (e.isDead) {
+              if (!e.id && b.owner) {
+                b.owner.addScore(e.scoreValue);
+              }
+              this._spawnParticles(e.position, e.color, 12);
+            }
+            break;
           }
-          break;
         }
       }
 
@@ -109,6 +116,16 @@ export class EntityManager {
         if (b.owner === p || p === b.owner) continue;
 
         if (this._circles(b, p)) {
+          if (isEnemyBullet) {
+            // In multiplayer each client applies enemy bullet damage to local player only.
+            if (p.inputManager) {
+              p.takeDamage(b.damage);
+            }
+            b.isAlive = false;
+            this._spawnParticles(b.position, '#ff8a65', 8);
+            break;
+          }
+
           // Aby uniknąć podwójnego zliczania, każdy klient odejmuje HP "tylko własnemu graczowi" 
           // (lub strzelający narzuca DMG, zależy od modelu - my uznajemy, że cel odlicza lokalnie).
           // W prostym modelu zdejmujemy HP jeśli obiekt to P (instancja z inputManager - nasz własny), 
@@ -135,6 +152,13 @@ export class EntityManager {
       for (const p of this.players) {
         if (!p.isAlive) continue;
         if (this._circles(e, p)) {
+          if (e.explodeOnTouch) {
+            this._detonateEnemy(e);
+            continue;
+          }
+          if (e.dealsContactDamage === false) {
+            continue;
+          }
           const acc = contactDamageByPlayer.get(p) || 0;
           contactDamageByPlayer.set(p, acc + e.damage * dt);
         }
@@ -254,6 +278,33 @@ export class EntityManager {
         maxLife: 0.7,
       });
     }
+  }
+
+  _detonateEnemy(enemy) {
+    if (!enemy || !enemy.isAlive) return;
+
+    enemy.isAlive = false;
+
+    if (enemy.id && typeof this.onEnemyDetonated === 'function') {
+      this.onEnemyDetonated(enemy.id);
+    }
+
+    const blastRadius = enemy.explosionRadius || 70;
+    const maxDamage = enemy.explosionDamage || 42;
+
+    for (const p of this.players) {
+      if (!p.isAlive) continue;
+      const d = enemy.position.distance(p.position);
+      const hitRange = blastRadius + p.radius;
+      if (d > hitRange) continue;
+
+      const falloff = 1 - Math.min(1, d / hitRange);
+      const damage = Math.max(8, maxDamage * (0.45 + 0.55 * falloff));
+      p.takeDamage(damage, { bypassIframes: true });
+    }
+
+    this._spawnParticles(enemy.position, '#ff7043', 22);
+    this._spawnParticles(enemy.position, '#fff176', 12);
   }
 
   _cleanup() {

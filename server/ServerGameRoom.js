@@ -91,6 +91,14 @@ class ServerGameRoom {
     }
   }
 
+  detonateEnemy(enemyId) {
+    const e = this.enemies.get(enemyId);
+    if (!e) return;
+    if (e.type !== 'ExploderZombie') return;
+
+    this.enemies.delete(enemyId);
+  }
+
   update() {
     const now = Date.now();
     const dt = (now - this._lastTime) / 1000;
@@ -137,6 +145,14 @@ class ServerGameRoom {
       this.enemies.forEach(e => {
         if (e.type === 'BossZombie') {
           this._updateBoss(e, targets, dt);
+          return;
+        }
+        if (e.type === 'ShooterZombie') {
+          this._updateShooter(e, targets, dt);
+          return;
+        }
+        if (e.type === 'ExploderZombie') {
+          this._updateExploder(e, targets, dt);
           return;
         }
 
@@ -205,7 +221,9 @@ class ServerGameRoom {
   spawnEnemy() {
     const types = [
       { type: 'Zombie', weight: 3, minWave: 1, hp: 50, speed: 60, radius: 15, scoreValue: 10 },
-      { type: 'FastZombie', weight: 1, minWave: 2, hp: 30, speed: 120, radius: 12, scoreValue: 25 }
+      { type: 'FastZombie', weight: 1, minWave: 2, hp: 30, speed: 120, radius: 12, scoreValue: 25 },
+      { type: 'ShooterZombie', weight: 1, minWave: 3, hp: 55, speed: 95, radius: 16, scoreValue: 35 },
+      { type: 'ExploderZombie', weight: 1.2, minWave: 2, hp: 36, speed: 135, radius: 17, scoreValue: 30 },
     ];
 
     const eligible = types.filter(t => t.minWave <= this.wave);
@@ -233,6 +251,74 @@ class ServerGameRoom {
       radius: chosen.radius,
       scoreValue: chosen.scoreValue,
     });
+  }
+
+  _updateShooter(shooter, targets, dt) {
+    let closestDist = Infinity;
+    let target = null;
+    for (const p of targets) {
+      const dx = p.x - shooter.x;
+      const dy = p.y - shooter.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < closestDist) {
+        closestDist = distSq;
+        target = { dx, dy, d: Math.sqrt(distSq) };
+      }
+    }
+
+    if (!target || target.d <= 0) {
+      return;
+    }
+
+    if (typeof shooter.orbitPhase !== 'number') {
+      shooter.orbitPhase = Math.random() * Math.PI * 2;
+    }
+    shooter.orbitPhase += dt * 3.2;
+
+    const preferredDistance = 230;
+    const nx = target.dx / target.d;
+    const ny = target.dy / target.d;
+    const px = -ny;
+    const py = nx;
+
+    const distanceError = target.d - preferredDistance;
+    const radial = Math.max(-1, Math.min(1, distanceError / 90));
+    const strafe = Math.sin(shooter.orbitPhase) * 0.7;
+    let mx = nx * radial + px * strafe;
+    let my = ny * radial + py * strafe;
+    const mag = Math.sqrt(mx * mx + my * my) || 1;
+    mx /= mag;
+    my /= mag;
+
+    shooter.x += mx * shooter.speed * dt;
+    shooter.y += my * shooter.speed * dt;
+
+    const { x, y, w, h } = this.bounds;
+    shooter.x = Math.max(x + shooter.radius, Math.min(x + w - shooter.radius, shooter.x));
+    shooter.y = Math.max(y + shooter.radius, Math.min(y + h - shooter.radius, shooter.y));
+  }
+
+  _updateExploder(exploder, targets, dt) {
+    let closestDist = Infinity;
+    let target = null;
+    for (const p of targets) {
+      const dx = p.x - exploder.x;
+      const dy = p.y - exploder.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < closestDist) {
+        closestDist = distSq;
+        target = { dx, dy, d: Math.sqrt(distSq) };
+      }
+    }
+
+    if (target && target.d > 0) {
+      exploder.x += (target.dx / target.d) * exploder.speed * dt;
+      exploder.y += (target.dy / target.d) * exploder.speed * dt;
+    }
+
+    const { x, y, w, h } = this.bounds;
+    exploder.x = Math.max(x + exploder.radius, Math.min(x + w - exploder.radius, exploder.x));
+    exploder.y = Math.max(y + exploder.radius, Math.min(y + h - exploder.radius, exploder.y));
   }
 
   spawnBoss(endedWave) {

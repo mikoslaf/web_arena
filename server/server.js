@@ -210,6 +210,16 @@ const handlers = {
 
     // Apply damage on the server
     room.hitEnemy(client.playerId, msg.enemyId, msg.damage);
+  },
+
+  enemyDetonated(ws, msg) {
+    const client = clients.get(ws);
+    if (!client || !client.roomId) return;
+
+    const room = rooms.get(client.roomId);
+    if (!room) return;
+
+    room.detonateEnemy(msg.enemyId);
   }
 };
 

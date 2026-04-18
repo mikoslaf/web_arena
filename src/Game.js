@@ -5,6 +5,8 @@ import { Bullet } from './entities/Bullet.js';
 import { Zombie } from './entities/Zombie.js';
 import { FastZombie } from './entities/FastZombie.js';
 import { BossZombie } from './entities/BossZombie.js';
+import { ShooterZombie } from './entities/ShooterZombie.js';
+import { ExploderZombie } from './entities/ExploderZombie.js';
 import { MedkitPowerUp } from './entities/powerups/MedkitPowerUp.js';
 import { RapidFirePowerUp } from './entities/powerups/RapidFirePowerUp.js';
 import { ShieldPowerUp } from './entities/powerups/ShieldPowerUp.js';
@@ -39,6 +41,12 @@ export class Game {
     this.em.onEnemyHit = (enemyId, damage, killerInfo) => {
       if (this.network) {
         this.network.sendEnemyHit(enemyId, damage);
+      }
+    };
+
+    this.em.onEnemyDetonated = (enemyId) => {
+      if (this.network) {
+        this.network.sendEnemyDetonated(enemyId);
       }
     };
 
@@ -140,6 +148,10 @@ export class Game {
               enemy = new FastZombie({ position: new Vector2(se.x, se.y) });
             } else if (se.type === 'BossZombie') {
               enemy = new BossZombie({ position: new Vector2(se.x, se.y), wave: se.wave || this.spawner.wave, variant: se.variant });
+            } else if (se.type === 'ShooterZombie') {
+              enemy = new ShooterZombie({ position: new Vector2(se.x, se.y) });
+            } else if (se.type === 'ExploderZombie') {
+              enemy = new ExploderZombie({ position: new Vector2(se.x, se.y) });
             } else {
               enemy = new Zombie({ position: new Vector2(se.x, se.y) });
             }

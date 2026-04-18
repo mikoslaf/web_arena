@@ -1,6 +1,8 @@
 import { Zombie } from '../entities/Zombie.js';
 import { FastZombie } from '../entities/FastZombie.js';
 import { BossZombie } from '../entities/BossZombie.js';
+import { ShooterZombie } from '../entities/ShooterZombie.js';
+import { ExploderZombie } from '../entities/ExploderZombie.js';
 import { Vector2 } from '../Vector2.js';
 
 /**
@@ -21,6 +23,16 @@ const ENEMY_TYPES = [
     factory: (pos) => new FastZombie({ position: pos }),
     weight: 1,
     minWave: 2,
+  },
+  {
+    factory: (pos) => new ShooterZombie({ position: pos }),
+    weight: 1,
+    minWave: 1,
+  },
+  {
+    factory: (pos) => new ExploderZombie({ position: pos }),
+    weight: 1.2,
+    minWave: 1,
   },
   // ── Add new enemy types below ──────────────────────────────────
   // {
