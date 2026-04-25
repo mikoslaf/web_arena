@@ -321,6 +321,44 @@ html, body {
   letter-spacing: 0.08em;
 }
 
+/* ── Lobby corner logo ────────────────────────────────────────────────── */
+.lobby-bg-logo {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(66, 165, 245, 0.35);
+  box-shadow:
+    0 0 0 4px rgba(66, 165, 245, 0.06),
+    0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  user-select: none;
+  z-index: 20;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Author footer ───────────────────────────────────────────────────── */
+.lobby-author {
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+.author-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s, text-shadow 0.2s;
+}
+.author-link:hover {
+  color: #90caf9;
+  text-shadow: 0 0 10px rgba(66,165,245,0.5);
+}
+
 /* ── Animations ───────────────────────────────────────────────────────── */
 @keyframes pulse {
   0%, 100% { text-shadow: 0 0 20px rgba(66,165,245,0.6), 0 0 60px rgba(66,165,245,0.3); }
