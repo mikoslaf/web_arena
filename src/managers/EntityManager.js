@@ -84,6 +84,11 @@ export class EntityManager {
         for (const e of this.enemies) {
           if (!e.isAlive) continue;
           if (this._circles(b, e)) {
+            if (!e.canTakeBulletDamage(b)) {
+              b.isAlive = false;
+              this._spawnParticles(b.position, '#b0bec5', 5);
+              break;
+            }
 
             // Wysyłamy informację na serwer, jeśli pocisk jest nasz
             if (b.owner && b.owner.inputManager && this.onEnemyHit && e.id) {

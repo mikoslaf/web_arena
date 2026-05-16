@@ -61,6 +61,14 @@ export class Enemy extends Entity {
     this._chase(dt);
   }
 
+  /**
+   * Override in subclasses that can only be damaged under special conditions.
+   * @param {import('./Bullet.js').Bullet} _bullet
+   */
+  canTakeBulletDamage(_bullet) {
+    return true;
+  }
+
   takeDamage(amount) {
     this._hitFlash = 0.12;
     super.takeDamage(amount);
